@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>수행평가 일정 관리 앱</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: #f4f6f8; margin: 0; padding: 20px; display: flex; justify-content: center; }
+    .app-container { width: 100%; max-width: 500px; background: #ffffff; padding: 24px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.08); }
+    h2 { margin-top: 0; color: #1a1a1a; font-size: 20px; text-align: center; }
+    
+    .form-group { margin-bottom: 14px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #666; margin-bottom: 6px; }
+    select, input, textarea { width: 100%; padding: 12px; border: 1px solid #e1e4e8; border-radius: 8px; font-size: 14px; outline: none; transition: border-color 0.2s; }
+    select:focus, input:focus, textarea:focus { border-color: #4f46e5; }
+    textarea { height: 70px; resize: none; }
+    
+    .btn-submit { width: 100%; padding: 14px; background: #4f46e5; color: white; border: none; border-radius: 8px; font-size: 15px; font-weight: bold; cursor: pointer; }
+    .btn-submit:hover { background: #4338ca; }
+
+    .divider { margin: 24px 0; border-bottom: 1px solid #eee; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+    th { text-align: left; background: #f8fafc; color: #475569; padding: 10px; border-bottom: 2px solid #e2e8f0; }
+    td { padding: 10px; border-bottom: 1px solid #f1f5f9; vertical-align: top; }
+
+    .badge { display: inline-block; padding: 4px 8px; border-radius: 6px; font-size: 12px; font-weight: bold; color: white; }
+    .badge-국어 { background: #ef4444; }
+    .badge-영어 { background: #3b82f6; }
+    .badge-수학 { background: #f59e0b; }
+
+    .btn-del { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 12px; font-weight: bold; padding: 0; }
+    .empty-msg { text-align: center; color: #94a3b8; padding: 20px 0; }
+  </style>
+</head>
+<body>
+
+<div class="app-container">
+  <h2>📝 수행평가 일정 관리</h2>
+
+  <div class="form-group">
+    <label>과목 선택</label>
+    <select id="subject">
+      <option value="국어">국어</option>
+      <option value="영어">영어</option>
+      <option value="수학">수학</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label>수행평가 날짜</label>
+    <input type="date" id="date">
+  </div>
+
+  <div class="form-group">
+    <label>수행평가 내용</label>
+    <textarea id="content" placeholder="평가 내용을 입력하세요"></textarea>
+  </div>
+
+  <button class="btn-submit" onclick="saveItem()">저장하기</button>
+
+  <div class="divider"></div>
+
+  <table id="dataTable">
+    <thead>
+      <tr>
+        <th style="width: 20%;">과목</th>
+        <th style="width: 25%;">날짜</th>
+        <th>내용</th>
+        <th style="width: 10%;"></th>
+      </tr>
+    </thead>
+    <tbody id="list">
+    </tbody>
+  </table>
+</div>
+
+<script>
+  let data = JSON.parse(localStorage.getItem('evalData')) || [];
+
+  function render() {
+    const list = document.getElementById('list');
+    list.innerHTML = '';
+
+    if (data.length === 0) {
+      list.innerHTML = '<tr><td colspan="4" class="empty-msg">등록된 일정이 없습니다.</td></tr>';
+      return;
+    }
+
+    // 날짜 오름차순 정렬
+    data.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    data.forEach((item, index) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><span class="badge badge-${item.subject}">${item.subject}</span></td>
+        <td>${item.date}</td>
+        <td>${item.content.replace(/\n/g, '<br>')}</td>
+        <td><button class="btn-del" onclick="removeItem(${index})">삭제</button></td>
+      `;
+      list.appendChild(tr);
+    });
+  }
+
+  function saveItem() {
+    const subject = document.getElementById('subject').value;
+    const date = document.getElementById('date').value;
+    const content = document.getElementById('content').value.trim();
+
+    if (!date || !content) {
+      alert('날짜와 내용을 입력해주세요!');
+      return;
+    }
+
+    data.push({ subject, date, content });
+    localStorage.setItem('evalData', JSON.stringify(data));
+
+    document.getElementById('date').value = '';
+    document.getElementById('content').value = '';
+
+    render();
+  }
+
+  function removeItem(index) {
+    data.splice(index, 1);
+    localStorage.setItem('evalData', JSON.stringify(data));
+    render();
+  }
+
+  render();
+</script>
+
+</body>
+</html>
