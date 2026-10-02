@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>수행평가 일정 관리</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        blue: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            background-color: #ffffff;
+        }
+    </style>
+</head>
+<body class="bg-white text-slate-800 min-h-screen p-4 sm:p-8 max-w-6xl mx-auto">
+
+    <header class="text-center my-6 sm:my-10">
+        <h1 class="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">수행평가 일정 관리</h1>
+        <p class="text-slate-500 mt-2 text-sm sm:text-base">과목별로 수행평가 날짜와 내용을 한 화면에서 바로 등록하고 관리해보세요.</p>
+    </header>
+
+    <main class="grid grid-cols-1 md:grid-cols-2 gap-6" id="subjectGrid">
+        <!-- Dynamic Subject Cards Rendered by JS -->
+    </main>
+
+    <script>
+        const subjects = [
+            { id: 'kor', name: '국어', icon: '📖' },
+            { id: 'eng', name: '영어', icon: '🔤' },
+            { id: 'math', name: '수학', icon: '📐' },
+            { id: 'sci', name: '과학', icon: '🔬' }
+        ];
+
+        // Load tasks from localStorage or set up default empty state
+        let tasks = JSON.parse(localStorage.getItem('eval_schedule_tasks')) || {
+            kor: [],
+            eng: [],
+            math: [],
+            sci: []
+        };
+
+        function saveTasksToStorage() {
+            localStorage.setItem('eval_schedule_tasks', JSON.stringify(tasks));
+        }
+
+        // Calculate D-Day badge text & color class dynamically
+        function calculateDDay(targetDateStr) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            const targetDate = new Date(targetDateStr);
+            targetDate.setHours(0, 0, 0, 0);
+
+            const diffTime = targetDate - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+            if (diffDays === 0) {
+                return { text: 'D-Day', badgeClass: 'bg-red-500 text-white font-bold' };
+            } else if (diffDays > 0) {
+                return { 
+                    text: `D-${diffDays}`, 
+                    badgeClass: diffDays <= 3 ? 'bg-amber-500 text-white font-bold' : 'bg-blue-600 text-white font-medium' 
+                };
+            } else {
+                return { text: `D+${Math.abs(diffDays)}`, badgeClass: 'bg-slate-200 text-slate-600 font-medium' };
+            }
+        }
+
+        function handleSaveTask(subjectId, taskId = null) {
+            const dateInput = document.getElementById(`date-${subjectId}`);
+            const contentInput = document.getElementById(`content-${subjectId}`);
+
+            const dateValue = dateInput.value.trim();
+            const contentValue = contentInput.value.trim();
+
+            if (!dateValue) {
+                alert('수행평가 날짜를 선택해주세요.');
+                return;
+            }
+            if (!contentValue) {
+                alert('수행평가 내용을 입력해주세요.');
+                return;
+            }
+
+            if (taskId) {
+                // Edit mode: update existing task
+                const taskIndex = tasks[subjectId].findIndex(t => t.id === taskId);
+                if (taskIndex !== -1) {
+                    tasks[subjectId][taskIndex] = { id: taskId, date: dateValue, content: contentValue };
+                }
+            } else {
+                // Add mode: create new task
+                const newTask = {
+                    id: 'task_' + Date.now(),
+                    date: dateValue,
+                    content: contentValue
+                };
+                tasks[subjectId].push(newTask);
+            }
+
+            // Sort tasks by upcoming date
+            tasks[subjectId].sort((a, b) => new Date(a.date) - new Date(b.date));
+
+            saveTasksToStorage();
+            renderApp();
+        }
+
+        function deleteTask(subjectId, taskId) {
+            tasks[subjectId] = tasks[subjectId].filter(t => t.id !== taskId);
+            saveTasksToStorage();
+            renderApp();
+        }
+
+        function prepareEditTask(subjectId, taskId) {
+            const task = tasks[subjectId].find(t => t.id === taskId);
+            if (!task) return;
+
+            const dateInput = document.getElementById(`date-${subjectId}`);
+            const contentInput = document.getElementById(`content-${subjectId}`);
+            const submitBtn = document.getElementById(`submit-btn-${subjectId}`);
+            const cancelBtn = document.getElementById(`cancel-btn-${subjectId}`);
+
+            dateInput.value = task.date;
+            contentInput.value = task.content;
+
+            submitBtn.textContent = '수정 완료';
+            submitBtn.onclick = () => handleSaveTask(subjectId, taskId);
+
+            cancelBtn.classList.remove('hidden');
+            cancelBtn.onclick = () => resetForm(subjectId);
+
+            contentInput.focus();
+        }
+
+        function resetForm(subjectId) {
+            const dateInput = document.getElementById(`date-${subjectId}`);
+            const contentInput = document.getElementById(`content-${subjectId}`);
+            const submitBtn = document.getElementById(`submit-btn-${subjectId}`);
+            const cancelBtn = document.getElementById(`cancel-btn-${subjectId}`);
+
+            if (dateInput) dateInput.value = '';
+            if (contentInput) contentInput.value = '';
+            if (submitBtn) {
+                submitBtn.textContent = '등록하기';
+                submitBtn.onclick = () => handleSaveTask(subjectId);
+            }
+            if (cancelBtn) cancelBtn.classList.add('hidden');
+        }
+
+        function renderApp() {
+            const grid = document.getElementById('subjectGrid');
+            grid.innerHTML = '';
+
+            subjects.forEach(subject => {
+                const subjectTasks = tasks[subject.id] || [];
+
+                const card = document.createElement('section');
+                card.className = 'border border-slate-200 rounded-2xl p-5 bg-white shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between';
+
+                let html = `
+                    <div>
+                        <!-- Subject Title & Badge -->
+                        <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+                            <h2 class="text-xl font-bold text-slate-800 flex items-center gap-2">
+                                <span>${subject.icon}</span> ${subject.name}
+                            </h2>
+                            <span class="text-xs font-semibold px-2.5 py-1 bg-blue-50 text-blue-600 rounded-full">
+                                총 ${subjectTasks.length}개
+                            </span>
+                        </div>
+
+                        <!-- Schedule Item List -->
+                        <div class="space-y-2.5 mb-6">
+                `;
+
+                if (subjectTasks.length === 0) {
+                    html += `
+                        <div class="text-center py-6 text-slate-400 text-sm border border-dashed border-slate-100 rounded-xl">
+                            등록된 수행평가가 없습니다.
+                        </div>
+                    `;
+                } else {
+                    subjectTasks.forEach(task => {
+                        const dDayInfo = calculateDDay(task.date);
+                        html += `
+                            <div class="group bg-slate-50 border border-slate-100 rounded-xl p-3 flex items-start justify-between gap-3 hover:bg-blue-50/40 transition-colors">
+                                <div class="flex-1 min-w-0">
+                                    <div class="flex items-center gap-2 mb-1">
+                                        <span class="text-xs px-2 py-0.5 rounded-md ${dDayInfo.badgeClass}">
+                                            ${dDayInfo.text}
+                                        </span>
+                                        <span class="text-xs font-bold text-slate-500">
+                                            ${task.date}
+                                        </span>
+                                    </div>
+                                    <div class="text-sm text-slate-800 font-medium whitespace-pre-wrap break-words">${escapeHtml(task.content)}</div>
+                                </div>
+                                <div class="flex items-center gap-1 shrink-0">
+                                    <button onclick="prepareEditTask('${subject.id}', '${task.id}')" class="text-xs text-slate-400 hover:text-blue-600 p-1 font-medium transition-colors">
+                                        수정
+                                    </button>
+                                    <button onclick="deleteTask('${subject.id}', '${task.id}')" class="text-xs text-slate-400 hover:text-red-500 p-1 font-medium transition-colors">
+                                        삭제
+                                    </button>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+
+                html += `
+                        </div>
+                    </div>
+
+                    <!-- Single-Screen Inline Entry Form -->
+                    <div class="bg-slate-50 border border-slate-100 rounded-xl p-3.5">
+                        <div class="text-xs font-semibold text-slate-500 mb-2">수행일정 바로 입력 / 수정</div>
+                        <div class="space-y-2">
+                            <input type="date" id="date-${subject.id}" class="w-full text-xs sm:text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                            <input type="text" id="content-${subject.id}" placeholder="수행평가 내용 (예: 국어 가사와 노래 발표)" class="w-full text-xs sm:text-sm bg-white border border-slate-200 rounded-lg px-3 py-2 text-slate-700 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500">
+                            <div class="flex gap-2 pt-1">
+                                <button id="submit-btn-${subject.id}" onclick="handleSaveTask('${subject.id}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs sm:text-sm py-2 rounded-lg transition-colors shadow-sm">
+                                    등록하기
+                                </button>
+                                <button id="cancel-btn-${subject.id}" onclick="resetForm('${subject.id}')" class="hidden bg-slate-200 hover:bg-slate-300 text-slate-700 font-medium text-xs sm:text-sm px-3 py-2 rounded-lg transition-colors">
+                                    취소
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                card.innerHTML = html;
+                grid.appendChild(card);
+            });
+        }
+
+        // HTML Sanitizer to prevent XSS
+        function escapeHtml(str) {
+            return str
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        window.onload = function() {
+            renderApp();
+        };
+    </script>
+</body>
+</html>
